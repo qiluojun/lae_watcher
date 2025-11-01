@@ -1,0 +1,298 @@
+package com.example.lae_watcher.utils
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.util.Log
+import com.example.lae_watcher.receivers.TimeReceiver
+import java.util.Calendar
+
+/**
+ * AlarmScheduler - 定时提醒调度工具类
+ *
+ * 功能:
+ * - 设置每日定时提醒
+ * - 取消定时提醒
+ * - 支持精确定时 (Android 12+ 需要 SCHEDULE_EXACT_ALARM 权限)
+ *
+ * 默认时间: 15:15 (下午3点15分)
+ */
+object AlarmScheduler {
+
+    private const val TAG = "AlarmScheduler"
+    private const val REQUEST_CODE = 1001
+    private const val REQUEST_CODE_ONCE = 1002  // 一次性提醒的 Request Code
+
+    /**
+     * 设置每日定时提醒
+     *
+     * @param context 上下文
+     * @param hour 小时 (0-23)
+     * @param minute 分钟 (0-59)
+     */
+    fun scheduleDaily(context: Context, hour: Int, minute: Int) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // 检查精确定时权限 (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e(TAG, "缺少 SCHEDULE_EXACT_ALARM 权限，无法设置精确定时")
+                // TODO: Step 5 Flutter UI 时引导用户授权
+                return
+            }
+        }
+
+        val intent = Intent(context, TimeReceiver::class.java).apply {
+            action = TimeReceiver.ACTION_DAILY_ALARM
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 计算下次触发时间
+        val triggerTime = calculateNextTriggerTime(hour, minute)
+
+        // 使用 AlarmClockInfo 设置闹钟（让系统识别为真正的闹钟，允许息屏唤醒）
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // 创建一个用于显示的 PendingIntent（点击状态栏图标时打开的界面）
+                val showIntent = Intent(context, com.example.lae_watcher.MainActivity::class.java)
+                val showPendingIntent = PendingIntent.getActivity(
+                    context,
+                    0,
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // 使用 AlarmClockInfo 设置闹钟
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+
+                val calendar = Calendar.getInstance().apply { timeInMillis = triggerTime }
+                Log.i(TAG, "⏰ 定时提醒已设置（闹钟模式）: ${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH) + 1}-${calendar.get(Calendar.DAY_OF_MONTH)} $hour:${minute.toString().padStart(2, '0')}")
+            } else {
+                // Android 5.0 以下使用普通方式
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+
+                val calendar = Calendar.getInstance().apply { timeInMillis = triggerTime }
+                Log.i(TAG, "定时提醒已设置: ${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH) + 1}-${calendar.get(Calendar.DAY_OF_MONTH)} $hour:${minute.toString().padStart(2, '0')}")
+            }
+
+            // 保存设置到 SharedPreferences
+            saveAlarmSettings(context, hour, minute, true)
+
+        } catch (e: SecurityException) {
+            Log.e(TAG, "设置定时提醒失败: 缺少权限", e)
+        }
+    }
+
+    /**
+     * 取消定时提醒
+     */
+    fun cancelAlarm(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        val intent = Intent(context, TimeReceiver::class.java).apply {
+            action = TimeReceiver.ACTION_DAILY_ALARM
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        alarmManager.cancel(pendingIntent)
+        Log.i(TAG, "定时提醒已取消")
+
+        // 更新设置
+        saveAlarmSettings(context, 15, 15, false)
+    }
+
+    /**
+     * 计算下次触发时间
+     * 规则: 如果今天的设定时间已过，则设置为明天同一时间
+     */
+    private fun calculateNextTriggerTime(hour: Int, minute: Int): Long {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+
+            // 如果设定时间已过，延后到明天
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+
+        return calendar.timeInMillis
+    }
+
+    /**
+     * 保存定时提醒设置到 SharedPreferences
+     */
+    private fun saveAlarmSettings(context: Context, hour: Int, minute: Int, enabled: Boolean) {
+        val prefs = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putInt("alarm_hour", hour)
+            putInt("alarm_minute", minute)
+            putBoolean("alarm_enabled", enabled)
+            apply()
+        }
+    }
+
+    /**
+     * 读取定时提醒设置
+     */
+    fun getAlarmSettings(context: Context): Triple<Int, Int, Boolean> {
+        val prefs = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
+        val hour = prefs.getInt("alarm_hour", 15)
+        val minute = prefs.getInt("alarm_minute", 15)
+        val enabled = prefs.getBoolean("alarm_enabled", true)
+        return Triple(hour, minute, enabled)
+    }
+
+    /**
+     * 设置一次性延迟提醒
+     *
+     * @param context 上下文
+     * @param delayMinutes 延迟时间（分钟）
+     */
+    fun scheduleOnce(context: Context, delayMinutes: Int) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // 检查精确定时权限 (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e(TAG, "缺少 SCHEDULE_EXACT_ALARM 权限，无法设置精确定时")
+                return
+            }
+        }
+
+        val intent = Intent(context, TimeReceiver::class.java).apply {
+            action = TimeReceiver.ACTION_DAILY_ALARM
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE_ONCE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 计算触发时间：当前时间 + 延迟分钟数
+        val triggerTime = System.currentTimeMillis() + (delayMinutes * 60 * 1000L)
+
+        // 使用 AlarmClockInfo 设置闹钟（让系统识别为真正的闹钟）
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // 创建一个用于显示的 PendingIntent
+                val showIntent = Intent(context, com.example.lae_watcher.MainActivity::class.java)
+                val showPendingIntent = PendingIntent.getActivity(
+                    context,
+                    0,
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // 使用 AlarmClockInfo 设置闹钟
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+
+                val calendar = Calendar.getInstance().apply { timeInMillis = triggerTime }
+                Log.i(TAG, "⏰ 一次性提醒已设置（闹钟模式）: ${calendar.get(Calendar.HOUR_OF_DAY)}:${calendar.get(Calendar.MINUTE).toString().padStart(2, '0')} (延迟 $delayMinutes 分钟)")
+            } else {
+                // Android 5.0 以下使用普通方式
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+
+                val calendar = Calendar.getInstance().apply { timeInMillis = triggerTime }
+                Log.i(TAG, "一次性提醒已设置: ${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH) + 1}-${calendar.get(Calendar.DAY_OF_MONTH)} ${calendar.get(Calendar.HOUR_OF_DAY)}:${calendar.get(Calendar.MINUTE).toString().padStart(2, '0')} (延迟 $delayMinutes 分钟)")
+            }
+
+        } catch (e: SecurityException) {
+            Log.e(TAG, "设置一次性提醒失败: 缺少权限", e)
+        }
+    }
+
+    /**
+     * 设置快速测试提醒（秒级延迟）
+     *
+     * @param context 上下文
+     * @param delaySeconds 延迟时间（秒）
+     */
+    fun scheduleTest(context: Context, delaySeconds: Int) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // 检查精确定时权限 (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e(TAG, "缺少 SCHEDULE_EXACT_ALARM 权限，无法设置精确定时")
+                return
+            }
+        }
+
+        val intent = Intent(context, TimeReceiver::class.java).apply {
+            action = TimeReceiver.ACTION_DAILY_ALARM
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            REQUEST_CODE_ONCE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 计算触发时间：当前时间 + 延迟秒数
+        val triggerTime = System.currentTimeMillis() + (delaySeconds * 1000L)
+
+        // 使用 AlarmClockInfo 设置闹钟（让系统识别为真正的闹钟）
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // 创建一个用于显示的 PendingIntent（点击状态栏图标时打开的界面）
+                val showIntent = Intent(context, com.example.lae_watcher.MainActivity::class.java)
+                val showPendingIntent = PendingIntent.getActivity(
+                    context,
+                    0,
+                    showIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // 使用 AlarmClockInfo 设置闹钟
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+
+                Log.i(TAG, "⏰ [测试提醒] 已设置为闹钟模式，${delaySeconds}秒后触发")
+            } else {
+                // Android 5.0 以下使用普通方式
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+                Log.i(TAG, "⏰ [测试提醒] 已设置 ${delaySeconds}秒 后触发")
+            }
+
+            val calendar = Calendar.getInstance().apply { timeInMillis = triggerTime }
+            Log.i(TAG, "触发时间: ${calendar.get(Calendar.HOUR_OF_DAY)}:${calendar.get(Calendar.MINUTE).toString().padStart(2, '0')}:${calendar.get(Calendar.SECOND).toString().padStart(2, '0')}")
+
+        } catch (e: SecurityException) {
+            Log.e(TAG, "设置测试提醒失败: 缺少权限", e)
+        }
+    }
+}
