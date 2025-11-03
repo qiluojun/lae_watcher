@@ -43,6 +43,7 @@ class AlarmActivity : Activity() {
         private const val TAG = "AlarmActivity"
 
         // Intent Extra 键名
+        const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_ALARM_MESSAGE = "alarm_message"
         const val EXTRA_ALARM_TYPE = "alarm_type"
     }

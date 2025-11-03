@@ -37,12 +37,12 @@ class TimeReceiver : BroadcastReceiver() {
 
         when (intent.action) {
             ACTION_DAILY_ALARM -> {
-                handleDailyAlarm(context)
+                handleDailyAlarm(context, intent)
             }
             Intent.ACTION_BOOT_COMPLETED -> {
-                // 开机自启：重新设置定时提醒
-                Log.d(TAG, "设备重启，重新设置定时提醒")
-                rescheduleAlarm(context)
+                // 开机自启：重新设置所有提醒
+                Log.d(TAG, "设备重启，重新设置所有提醒")
+                rescheduleAllAlarms(context)
             }
         }
     }
@@ -50,10 +50,16 @@ class TimeReceiver : BroadcastReceiver() {
     /**
      * 处理每日定时提醒
      */
-    private fun handleDailyAlarm(context: Context) {
+    private fun handleDailyAlarm(context: Context, intent: Intent) {
         Log.i(TAG, "========================================")
         Log.i(TAG, "⏰ 定时提醒触发！")
         Log.i(TAG, "触发时间: ${System.currentTimeMillis()}")
+
+        // 从 Intent 中读取 id 和 message
+        val alarmId = intent.getStringExtra("alarm_id") ?: "unknown"
+        val alarmMessage = intent.getStringExtra("alarm_message") ?: "该休息了！"
+        Log.i(TAG, "提醒ID: $alarmId")
+        Log.i(TAG, "提醒内容: $alarmMessage")
 
         // 检查屏幕状态
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -63,11 +69,13 @@ class TimeReceiver : BroadcastReceiver() {
         // 唤醒屏幕
         wakeUpScreen(context)
 
-        // 直接启动 AlarmActivity
-        launchAlarmActivity(context)
+        // 直接启动 AlarmActivity，传递 id 和 message
+        launchAlarmActivity(context, alarmId, alarmMessage)
 
-        // 重新设置明天的定时提醒
-        rescheduleAlarm(context)
+        // 重新设置明天的定时提醒（只针对非测试提醒）
+        if (alarmId != "test") {
+            rescheduleAlarm(context, alarmId)
+        }
 
         Log.i(TAG, "========================================")
     }
@@ -75,13 +83,16 @@ class TimeReceiver : BroadcastReceiver() {
     /**
      * 直接启动 AlarmActivity
      */
-    private fun launchAlarmActivity(context: Context) {
+    private fun launchAlarmActivity(context: Context, alarmId: String, message: String) {
         Log.d(TAG, "→ 开始启动 AlarmActivity...")
 
         val intent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+            putExtra(AlarmActivity.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmActivity.EXTRA_ALARM_MESSAGE, message)
+            putExtra(AlarmActivity.EXTRA_ALARM_TYPE, "time")
         }
 
         try {
@@ -223,22 +234,40 @@ class TimeReceiver : BroadcastReceiver() {
     }
 
     /**
-     * 重新设置定时提醒
+     * 重新设置单个定时提醒（触发后重新调度到明天）
      */
-    private fun rescheduleAlarm(context: Context) {
-        val prefs = context.getSharedPreferences("alarm_prefs", Context.MODE_PRIVATE)
-        val enabled = prefs.getBoolean("alarm_enabled", true)
+    private fun rescheduleAlarm(context: Context, alarmId: String) {
+        try {
+            val manager = com.example.lae_watcher.utils.TimeAlarmManager(context)
+            val item = manager.getById(alarmId)
 
-        if (enabled) {
-            val hour = prefs.getInt("alarm_hour", 15)
-            val minute = prefs.getInt("alarm_minute", 15)
-
-            try {
-                AlarmScheduler.scheduleDaily(context, hour, minute)
-                Log.d(TAG, "重新设置定时提醒: $hour:$minute")
-            } catch (e: Exception) {
-                Log.e(TAG, "重新设置定时提醒失败", e)
+            if (item != null && item.enabled) {
+                AlarmScheduler.schedule(context, item)
+                Log.d(TAG, "重新设置定时提醒: ${item.hour}:${item.minute} \"${item.message}\"")
+            } else {
+                Log.w(TAG, "提醒 ID=$alarmId 不存在或已禁用，跳过重新设置")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "重新设置定时提醒失败", e)
+        }
+    }
+
+    /**
+     * 重新设置所有定时提醒（开机自启时调用）
+     */
+    private fun rescheduleAllAlarms(context: Context) {
+        try {
+            val manager = com.example.lae_watcher.utils.TimeAlarmManager(context)
+            val alarms = manager.getEnabled()
+
+            if (alarms.isNotEmpty()) {
+                AlarmScheduler.scheduleAll(context, alarms)
+                Log.d(TAG, "重新设置所有定时提醒: ${alarms.size} 个")
+            } else {
+                Log.d(TAG, "没有启用的定时提醒")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "重新设置所有定时提醒失败", e)
         }
     }
 }

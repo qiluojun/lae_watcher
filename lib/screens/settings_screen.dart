@@ -671,6 +671,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+
+          // ========== 多提醒测试卡片 ==========
+          const SizedBox(height: 16),
+          Card(
+            color: Colors.green.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.science, color: Colors.green.shade700),
+                      const SizedBox(width: 8),
+                      Text(
+                        '测试多提醒功能 (Task 2)',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '点击按钮将添加 3 个测试提醒：',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '• 提醒1：1分钟后触发\n'
+                    '• 提醒2：2分钟后触发\n'
+                    '• 提醒3：禁用状态（不会触发）',
+                    style: TextStyle(fontSize: 12, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final success = await NativeBridge.testMultipleAlarms();
+
+                        if (success && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                '测试提醒已创建！\n'
+                                '请查看 logcat 日志，并等待 1-2 分钟观察提醒',
+                              ),
+                              duration: Duration(seconds: 5),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('开始测试多提醒'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '💡 提示：点击后请用 adb logcat 查看日志',
+                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

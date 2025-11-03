@@ -14,6 +14,10 @@ import com.example.lae_watcher.utils.AlarmScheduler
 import com.example.lae_watcher.utils.BehaviorAlarmConfigManager
 import com.example.lae_watcher.utils.BehaviorAlarmScheduler
 import com.example.lae_watcher.data.BehaviorAlarmConfig
+import com.example.lae_watcher.utils.TimeAlarmManager
+import com.example.lae_watcher.utils.BehaviorAlarmManager
+import com.example.lae_watcher.data.TimeAlarmItem
+import com.example.lae_watcher.data.BehaviorAlarmItem
 
 /**
  * MainActivity - Flutter 宿主 Activity
@@ -127,6 +131,122 @@ class MainActivity : FlutterActivity() {
 
                     result.success(true)
                 }
+                // ========== Type A 多提醒管理接口 ==========
+                "getTimeAlarms" -> {
+                    val manager = TimeAlarmManager(this)
+                    val alarms = manager.getAll()
+                    Log.i(TAG, "Flutter 调用: getTimeAlarms -> ${alarms.size} 个提醒")
+                    result.success(alarms.map { it.toMap() })
+                }
+                "addTimeAlarm" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val alarmMap = call.arguments as? Map<String, Any?>
+                    if (alarmMap != null) {
+                        val item = TimeAlarmItem.fromMap(alarmMap)
+                        val manager = TimeAlarmManager(this)
+                        val success = manager.add(item)
+                        Log.i(TAG, "Flutter 调用: addTimeAlarm -> ${item.toString()}, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "提醒参数无效", null)
+                    }
+                }
+                "updateTimeAlarm" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val alarmMap = call.arguments as? Map<String, Any?>
+                    if (alarmMap != null) {
+                        val item = TimeAlarmItem.fromMap(alarmMap)
+                        val manager = TimeAlarmManager(this)
+                        val success = manager.update(item)
+                        Log.i(TAG, "Flutter 调用: updateTimeAlarm -> ${item.toString()}, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "提醒参数无效", null)
+                    }
+                }
+                "deleteTimeAlarm" -> {
+                    val id = call.argument<String>("id")
+                    if (id != null) {
+                        val manager = TimeAlarmManager(this)
+                        val success = manager.delete(id)
+                        Log.i(TAG, "Flutter 调用: deleteTimeAlarm -> id=$id, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "ID 参数无效", null)
+                    }
+                }
+                "toggleTimeAlarm" -> {
+                    val id = call.argument<String>("id")
+                    if (id != null) {
+                        val manager = TimeAlarmManager(this)
+                        val newState = manager.toggle(id)
+                        Log.i(TAG, "Flutter 调用: toggleTimeAlarm -> id=$id, enabled=$newState")
+                        result.success(newState)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "ID 参数无效", null)
+                    }
+                }
+                // ========== Type B 多提醒管理接口 ==========
+                "getBehaviorAlarms" -> {
+                    val manager = BehaviorAlarmManager(this)
+                    val alarms = manager.getAll()
+                    Log.i(TAG, "Flutter 调用: getBehaviorAlarms -> ${alarms.size} 个配置")
+                    result.success(alarms.map { it.toMap() })
+                }
+                "addBehaviorAlarm" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val alarmMap = call.arguments as? Map<String, Any>
+                    if (alarmMap != null) {
+                        val item = BehaviorAlarmItem.fromMap(alarmMap)
+                        val manager = BehaviorAlarmManager(this)
+                        val success = manager.add(item)
+                        Log.i(TAG, "Flutter 调用: addBehaviorAlarm -> ${item.toString()}, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "监控配置参数无效", null)
+                    }
+                }
+                "updateBehaviorAlarm" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val alarmMap = call.arguments as? Map<String, Any>
+                    if (alarmMap != null) {
+                        val item = BehaviorAlarmItem.fromMap(alarmMap)
+                        val manager = BehaviorAlarmManager(this)
+                        val success = manager.update(item)
+                        Log.i(TAG, "Flutter 调用: updateBehaviorAlarm -> ${item.toString()}, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "监控配置参数无效", null)
+                    }
+                }
+                "deleteBehaviorAlarm" -> {
+                    val id = call.argument<String>("id")
+                    if (id != null) {
+                        val manager = BehaviorAlarmManager(this)
+                        val success = manager.delete(id)
+                        Log.i(TAG, "Flutter 调用: deleteBehaviorAlarm -> id=$id, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "ID 参数无效", null)
+                    }
+                }
+                "toggleBehaviorAlarm" -> {
+                    val id = call.argument<String>("id")
+                    if (id != null) {
+                        val manager = BehaviorAlarmManager(this)
+                        val newState = manager.toggle(id)
+                        Log.i(TAG, "Flutter 调用: toggleBehaviorAlarm -> id=$id, enabled=$newState")
+                        result.success(newState)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "ID 参数无效", null)
+                    }
+                }
+                // ========== 测试接口 ==========
+                "testMultipleAlarms" -> {
+                    Log.i(TAG, "Flutter 调用: testMultipleAlarms")
+                    testMultipleAlarms()
+                    result.success(true)
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -189,5 +309,65 @@ class MainActivity : FlutterActivity() {
                 Log.i(TAG, "全屏通知权限已授权")
             }
         }
+    }
+
+    /**
+     * 测试多提醒功能
+     */
+    private fun testMultipleAlarms() {
+        Log.i(TAG, "========== 开始测试多提醒功能 ==========")
+
+        val manager = TimeAlarmManager(this)
+
+        // 清空旧数据
+        manager.clear()
+        Log.i(TAG, "已清空旧数据")
+
+        // 添加 3 个测试提醒
+        val now = java.util.Calendar.getInstance()
+        val currentHour = now.get(java.util.Calendar.HOUR_OF_DAY)
+        val currentMinute = now.get(java.util.Calendar.MINUTE)
+
+        // 提醒1：当前时间 + 1 分钟
+        val item1 = TimeAlarmItem.create(
+            hour = currentHour,
+            minute = (currentMinute + 1) % 60,
+            message = "测试提醒1（1分钟后）",
+            enabled = true
+        )
+
+        // 提醒2：当前时间 + 2 分钟
+        val item2 = TimeAlarmItem.create(
+            hour = currentHour,
+            minute = (currentMinute + 2) % 60,
+            message = "测试提醒2（2分钟后）",
+            enabled = true
+        )
+
+        // 提醒3：禁用状态
+        val item3 = TimeAlarmItem.create(
+            hour = 21,
+            minute = 30,
+            message = "测试提醒3（禁用）",
+            enabled = false
+        )
+
+        manager.add(item1)
+        manager.add(item2)
+        manager.add(item3)
+
+        Log.i(TAG, "已添加 3 个测试提醒")
+
+        // 获取所有提醒
+        val alarms = manager.getAll()
+        Log.i(TAG, "当前提醒数量: ${alarms.size}")
+        alarms.forEach { alarm ->
+            Log.i(TAG, "  - ${alarm.hour}:${alarm.minute.toString().padStart(2, '0')} \"${alarm.message}\" [${if (alarm.enabled) "启用" else "禁用"}]")
+        }
+
+        // 调度所有启用的提醒
+        AlarmScheduler.scheduleAll(this, alarms)
+
+        Log.i(TAG, "========== 测试多提醒功能完成 ==========")
     }
 }
