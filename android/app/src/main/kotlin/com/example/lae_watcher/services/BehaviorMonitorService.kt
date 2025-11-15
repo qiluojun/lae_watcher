@@ -40,6 +40,7 @@ class BehaviorMonitorService : Service(), ScreenStateListener {
 
         // Intent Extra 键名
         const val EXTRA_THRESHOLD_SECONDS = "threshold_seconds"
+        const val EXTRA_ALARM_MESSAGE = "alarm_message"
 
         // Service 控制 Action
         const val ACTION_STOP_MONITORING = "com.example.lae_watcher.STOP_MONITORING"
@@ -91,7 +92,8 @@ class BehaviorMonitorService : Service(), ScreenStateListener {
             else -> {
                 // 正常启动：开始监控
                 val thresholdSeconds = intent?.getIntExtra(EXTRA_THRESHOLD_SECONDS, 30) ?: 30
-                startMonitoring(thresholdSeconds)
+                val alarmMessage = intent?.getStringExtra(EXTRA_ALARM_MESSAGE) ?: "亮屏时间过长！"
+                startMonitoring(thresholdSeconds, alarmMessage)
                 return START_STICKY
             }
         }
@@ -110,20 +112,20 @@ class BehaviorMonitorService : Service(), ScreenStateListener {
     /**
      * 开始监控
      */
-    private fun startMonitoring(thresholdSeconds: Int) {
+    private fun startMonitoring(thresholdSeconds: Int, alarmMessage: String) {
         if (isRunning) {
             Log.w(TAG, "监控已在运行中")
             return
         }
 
-        Log.i(TAG, "🚀 开始监控，阈值: ${thresholdSeconds}秒")
+        Log.i(TAG, "🚀 开始监控，阈值: ${thresholdSeconds}秒，提示语: $alarmMessage")
 
         // 1. 启动前台服务（显示通知）
         val notification = buildNotification()
         startForeground(NOTIFICATION_ID, notification)
 
-        // 2. 创建统计器
-        screenTimeTracker = ScreenTimeTracker(this, thresholdSeconds)
+        // 2. 创建统计器（传递自定义提示语）
+        screenTimeTracker = ScreenTimeTracker(this, thresholdSeconds, alarmMessage)
 
         // 3. 注册屏幕状态接收器
         registerScreenStateReceiver()

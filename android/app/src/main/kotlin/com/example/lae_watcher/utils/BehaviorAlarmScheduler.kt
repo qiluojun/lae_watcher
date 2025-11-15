@@ -37,6 +37,7 @@ object BehaviorAlarmScheduler {
 
         Log.i(TAG, "🚀 启动行为监控调度")
         Log.i(TAG, "  → 阈值: ${config.screenTimeThreshold}秒")
+        Log.i(TAG, "  → 提示语: ${config.message}")
         Log.i(TAG, "  → 时段数: ${config.timeRanges.size}")
 
         // 取消旧的调度
@@ -44,7 +45,7 @@ object BehaviorAlarmScheduler {
 
         // 为每个时段设置调度
         config.timeRanges.forEachIndexed { index, timeRange ->
-            scheduleTimeRange(context, index, timeRange, config.screenTimeThreshold)
+            scheduleTimeRange(context, index, timeRange, config.screenTimeThreshold, config.message)
         }
 
         Log.i(TAG, "✓ 行为监控调度已启动")
@@ -70,7 +71,8 @@ object BehaviorAlarmScheduler {
         context: Context,
         index: Int,
         timeRange: TimeRange,
-        thresholdSeconds: Int
+        thresholdSeconds: Int,
+        alarmMessage: String
     ) {
         Log.i(TAG, "⏰ 设置时段 ${index + 1}: $timeRange")
 
@@ -86,6 +88,7 @@ object BehaviorAlarmScheduler {
         val startIntent = Intent(context, BehaviorAlarmReceiver::class.java).apply {
             action = BehaviorAlarmReceiver.ACTION_START_MONITORING
             putExtra(BehaviorAlarmReceiver.EXTRA_THRESHOLD_SECONDS, thresholdSeconds)
+            putExtra(BehaviorAlarmReceiver.EXTRA_ALARM_MESSAGE, alarmMessage)
             putExtra(BehaviorAlarmReceiver.EXTRA_TIME_RANGE_INDEX, index)
         }
 
@@ -138,7 +141,7 @@ object BehaviorAlarmScheduler {
         Log.d(TAG, "     下次触发: $endTimeStr")
 
         // 3. 检查当前是否在监控时段内，如果是则立即启动服务
-        checkAndStartIfInRange(context, timeRange, thresholdSeconds)
+        checkAndStartIfInRange(context, timeRange, thresholdSeconds, alarmMessage)
     }
 
     /**
@@ -147,7 +150,8 @@ object BehaviorAlarmScheduler {
     private fun checkAndStartIfInRange(
         context: Context,
         timeRange: TimeRange,
-        thresholdSeconds: Int
+        thresholdSeconds: Int,
+        alarmMessage: String
     ) {
         val calendar = Calendar.getInstance()
         val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
@@ -158,7 +162,7 @@ object BehaviorAlarmScheduler {
 
         if (timeRange.isTimeInRange(currentHour, currentMinute)) {
             Log.i(TAG, "  ✓ 当前时间在监控时段内，立即启动服务")
-            startMonitoringService(context, thresholdSeconds)
+            startMonitoringService(context, thresholdSeconds, alarmMessage)
         } else {
             Log.i(TAG, "  ✗ 当前时间不在监控时段内，等待闹钟触发")
         }
@@ -238,9 +242,10 @@ object BehaviorAlarmScheduler {
     /**
      * 启动监控服务
      */
-    private fun startMonitoringService(context: Context, thresholdSeconds: Int) {
+    private fun startMonitoringService(context: Context, thresholdSeconds: Int, alarmMessage: String) {
         val serviceIntent = Intent(context, com.example.lae_watcher.services.BehaviorMonitorService::class.java).apply {
             putExtra(com.example.lae_watcher.services.BehaviorMonitorService.EXTRA_THRESHOLD_SECONDS, thresholdSeconds)
+            putExtra(com.example.lae_watcher.services.BehaviorMonitorService.EXTRA_ALARM_MESSAGE, alarmMessage)
         }
 
         try {

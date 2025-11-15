@@ -25,6 +25,7 @@ class BehaviorAlarmReceiver : BroadcastReceiver() {
 
         // Intent Extra 键名
         const val EXTRA_THRESHOLD_SECONDS = "threshold_seconds"
+        const val EXTRA_ALARM_MESSAGE = "alarm_message"
         const val EXTRA_TIME_RANGE_INDEX = "time_range_index"
     }
 
@@ -38,8 +39,9 @@ class BehaviorAlarmReceiver : BroadcastReceiver() {
         when (intent.action) {
             ACTION_START_MONITORING -> {
                 val thresholdSeconds = intent.getIntExtra(EXTRA_THRESHOLD_SECONDS, 30)
-                Log.i(TAG, "⏰ 监控时段 ${timeRangeIndex + 1} 开始，阈值: ${thresholdSeconds}秒")
-                startMonitoringService(context, thresholdSeconds)
+                val alarmMessage = intent.getStringExtra(EXTRA_ALARM_MESSAGE) ?: "亮屏时间过长！"
+                Log.i(TAG, "⏰ 监控时段 ${timeRangeIndex + 1} 开始，阈值: ${thresholdSeconds}秒，提示语: $alarmMessage")
+                startMonitoringService(context, thresholdSeconds, alarmMessage)
             }
             ACTION_STOP_MONITORING -> {
                 Log.i(TAG, "⏰ 监控时段 ${timeRangeIndex + 1} 结束")
@@ -54,9 +56,10 @@ class BehaviorAlarmReceiver : BroadcastReceiver() {
     /**
      * 启动监控服务
      */
-    private fun startMonitoringService(context: Context, thresholdSeconds: Int) {
+    private fun startMonitoringService(context: Context, thresholdSeconds: Int, alarmMessage: String) {
         val serviceIntent = Intent(context, BehaviorMonitorService::class.java).apply {
             putExtra(BehaviorMonitorService.EXTRA_THRESHOLD_SECONDS, thresholdSeconds)
+            putExtra(BehaviorMonitorService.EXTRA_ALARM_MESSAGE, alarmMessage)
         }
 
         try {

@@ -131,6 +131,19 @@ class MainActivity : FlutterActivity() {
 
                     result.success(true)
                 }
+                "setBehaviorAlarmMessage" -> {
+                    val message = call.argument<String>("message") ?: "亮屏时间过长！"
+                    BehaviorAlarmConfigManager.setMessage(this, message)
+                    Log.i(TAG, "Flutter 调用: setBehaviorAlarmMessage($message)")
+
+                    // 如果监控已启用，重启服务以应用新提示语
+                    val config = BehaviorAlarmConfigManager.loadConfig(this)
+                    if (config.enabled) {
+                        BehaviorAlarmScheduler.start(this, config)
+                    }
+
+                    result.success(true)
+                }
                 // ========== Type A 多提醒管理接口 ==========
                 "getTimeAlarms" -> {
                     val manager = TimeAlarmManager(this)
@@ -146,6 +159,13 @@ class MainActivity : FlutterActivity() {
                         val manager = TimeAlarmManager(this)
                         val success = manager.add(item)
                         Log.i(TAG, "Flutter 调用: addTimeAlarm -> ${item.toString()}, success=$success")
+
+                        // 重新调度所有提醒（先取消全部，再设置启用的）
+                        if (success) {
+                            val allAlarms = manager.getAll()
+                            AlarmScheduler.rescheduleAll(this, allAlarms)
+                        }
+
                         result.success(success)
                     } else {
                         result.error("INVALID_ARGUMENTS", "提醒参数无效", null)
@@ -159,6 +179,13 @@ class MainActivity : FlutterActivity() {
                         val manager = TimeAlarmManager(this)
                         val success = manager.update(item)
                         Log.i(TAG, "Flutter 调用: updateTimeAlarm -> ${item.toString()}, success=$success")
+
+                        // 重新调度所有提醒（先取消全部，再设置启用的）
+                        if (success) {
+                            val allAlarms = manager.getAll()
+                            AlarmScheduler.rescheduleAll(this, allAlarms)
+                        }
+
                         result.success(success)
                     } else {
                         result.error("INVALID_ARGUMENTS", "提醒参数无效", null)
@@ -170,6 +197,13 @@ class MainActivity : FlutterActivity() {
                         val manager = TimeAlarmManager(this)
                         val success = manager.delete(id)
                         Log.i(TAG, "Flutter 调用: deleteTimeAlarm -> id=$id, success=$success")
+
+                        // 取消该提醒的闹钟
+                        if (success) {
+                            AlarmScheduler.cancel(this, id)
+                            Log.i(TAG, "已取消提醒 $id 的闹钟")
+                        }
+
                         result.success(success)
                     } else {
                         result.error("INVALID_ARGUMENTS", "ID 参数无效", null)
@@ -181,6 +215,13 @@ class MainActivity : FlutterActivity() {
                         val manager = TimeAlarmManager(this)
                         val newState = manager.toggle(id)
                         Log.i(TAG, "Flutter 调用: toggleTimeAlarm -> id=$id, enabled=$newState")
+
+                        // 重新调度所有提醒（先取消全部，再设置启用的）
+                        if (newState != null) {
+                            val allAlarms = manager.getAll()
+                            AlarmScheduler.rescheduleAll(this, allAlarms)
+                        }
+
                         result.success(newState)
                     } else {
                         result.error("INVALID_ARGUMENTS", "ID 参数无效", null)

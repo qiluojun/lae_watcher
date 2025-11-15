@@ -87,9 +87,12 @@ class TimeReceiver : BroadcastReceiver() {
         Log.d(TAG, "→ 开始启动 AlarmActivity...")
 
         val intent = Intent(context, AlarmActivity::class.java).apply {
+            // 添加关键 flags 以支持后台启动（Android 14+）
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+
             putExtra(AlarmActivity.EXTRA_ALARM_ID, alarmId)
             putExtra(AlarmActivity.EXTRA_ALARM_MESSAGE, message)
             putExtra(AlarmActivity.EXTRA_ALARM_TYPE, "time")

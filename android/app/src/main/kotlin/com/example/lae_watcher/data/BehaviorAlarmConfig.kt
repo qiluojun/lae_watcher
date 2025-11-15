@@ -73,11 +73,13 @@ data class TimeRange(
  * @param enabled 是否启用行为监控
  * @param timeRanges 监控时段列表 (支持多时段)
  * @param screenTimeThreshold 亮屏时长阈值 (秒, 范围: 10-600)
+ * @param message 自定义提示语 (最多 50 字)
  */
 data class BehaviorAlarmConfig(
     val enabled: Boolean = false,
     val timeRanges: List<TimeRange> = listOf(TimeRange(21, 30, 8, 0)), // 默认 21:30 - 08:00
-    val screenTimeThreshold: Int = 30 // 默认 30 秒
+    val screenTimeThreshold: Int = 30, // 默认 30 秒
+    val message: String = "亮屏时间过长！" // 默认提示语
 ) {
     /**
      * 判断当前时间是否在任一监控时段内
@@ -98,7 +100,8 @@ data class BehaviorAlarmConfig(
                 "endHour" to it.endHour,
                 "endMinute" to it.endMinute
             )},
-            "screenTimeThreshold" to screenTimeThreshold
+            "screenTimeThreshold" to screenTimeThreshold,
+            "message" to message
         )
     }
 
@@ -109,6 +112,7 @@ data class BehaviorAlarmConfig(
         val json = JSONObject()
         json.put("enabled", enabled)
         json.put("screenTimeThreshold", screenTimeThreshold)
+        json.put("message", message)
 
         val rangesArray = JSONArray()
         timeRanges.forEach { rangesArray.put(it.toJson()) }
@@ -119,13 +123,14 @@ data class BehaviorAlarmConfig(
 
     companion object {
         /**
-         * 默认配置: 禁用, 21:30-08:00, 30秒阈值
+         * 默认配置: 禁用, 21:30-08:00, 30秒阈值, 默认提示语
          */
         fun default(): BehaviorAlarmConfig {
             return BehaviorAlarmConfig(
                 enabled = false,
                 timeRanges = listOf(TimeRange(21, 30, 8, 0)),
-                screenTimeThreshold = 30
+                screenTimeThreshold = 30,
+                message = "亮屏时间过长！"
             )
         }
 
@@ -137,6 +142,7 @@ data class BehaviorAlarmConfig(
                 val json = JSONObject(jsonString)
                 val enabled = json.getBoolean("enabled")
                 val threshold = json.getInt("screenTimeThreshold")
+                val message = json.optString("message", "亮屏时间过长！") // 兼容旧数据
 
                 val rangesArray = json.getJSONArray("timeRanges")
                 val timeRanges = mutableListOf<TimeRange>()
@@ -144,7 +150,7 @@ data class BehaviorAlarmConfig(
                     timeRanges.add(TimeRange.fromJson(rangesArray.getJSONObject(i)))
                 }
 
-                BehaviorAlarmConfig(enabled, timeRanges, threshold)
+                BehaviorAlarmConfig(enabled, timeRanges, threshold, message)
             } catch (e: Exception) {
                 // 解析失败返回默认配置
                 default()
@@ -157,6 +163,7 @@ data class BehaviorAlarmConfig(
         fun fromMap(map: Map<String, Any>): BehaviorAlarmConfig {
             val enabled = map["enabled"] as? Boolean ?: false
             val threshold = map["screenTimeThreshold"] as? Int ?: 30
+            val message = map["message"] as? String ?: "亮屏时间过长！"
 
             @Suppress("UNCHECKED_CAST")
             val rangesList = map["timeRanges"] as? List<Map<String, Any>> ?: emptyList()
@@ -169,7 +176,7 @@ data class BehaviorAlarmConfig(
                 )
             }
 
-            return BehaviorAlarmConfig(enabled, timeRanges.ifEmpty { listOf(TimeRange(21, 30, 8, 0)) }, threshold)
+            return BehaviorAlarmConfig(enabled, timeRanges.ifEmpty { listOf(TimeRange(21, 30, 8, 0)) }, threshold, message)
         }
     }
 }

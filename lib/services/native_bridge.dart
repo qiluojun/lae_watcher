@@ -191,11 +191,13 @@ class BehaviorAlarmConfig {
   final bool enabled;
   final List<TimeRange> timeRanges;
   final int screenTimeThreshold; // 秒
+  final String message; // 自定义提示语
 
   BehaviorAlarmConfig({
     required this.enabled,
     required this.timeRanges,
     required this.screenTimeThreshold,
+    this.message = "亮屏时间过长！",
   });
 
   /// 默认配置
@@ -204,6 +206,7 @@ class BehaviorAlarmConfig {
       enabled: false,
       timeRanges: [TimeRange(startHour: 21, startMinute: 30, endHour: 8, endMinute: 0)],
       screenTimeThreshold: 30,
+      message: "亮屏时间过长！",
     );
   }
 
@@ -218,6 +221,7 @@ class BehaviorAlarmConfig {
       enabled: map['enabled'] as bool,
       timeRanges: timeRanges,
       screenTimeThreshold: map['screenTimeThreshold'] as int,
+      message: map['message'] as String? ?? "亮屏时间过长！",
     );
   }
 
@@ -227,6 +231,7 @@ class BehaviorAlarmConfig {
       'enabled': enabled,
       'timeRanges': timeRanges.map((range) => range.toMap()).toList(),
       'screenTimeThreshold': screenTimeThreshold,
+      'message': message,
     };
   }
 
@@ -235,11 +240,13 @@ class BehaviorAlarmConfig {
     bool? enabled,
     List<TimeRange>? timeRanges,
     int? screenTimeThreshold,
+    String? message,
   }) {
     return BehaviorAlarmConfig(
       enabled: enabled ?? this.enabled,
       timeRanges: timeRanges ?? this.timeRanges,
       screenTimeThreshold: screenTimeThreshold ?? this.screenTimeThreshold,
+      message: message ?? this.message,
     );
   }
 }
@@ -359,6 +366,21 @@ class NativeBridge {
       return result == true;
     } catch (e) {
       print('设置亮屏时长阈值失败: $e');
+      return false;
+    }
+  }
+
+  /// 设置行为监控提示语
+  ///
+  /// [message] 自定义提示语（最多 50 字）
+  static Future<bool> setBehaviorAlarmMessage(String message) async {
+    try {
+      final result = await _channel.invokeMethod('setBehaviorAlarmMessage', {
+        'message': message,
+      });
+      return result == true;
+    } catch (e) {
+      print('设置行为监控提示语失败: $e');
       return false;
     }
   }

@@ -115,12 +115,15 @@ data class TimeAlarmItem(
             @Suppress("UNCHECKED_CAST")
             val repeatDays = map["repeatDays"] as? List<Int>
 
+            val rawMessage = (map["message"] as? String)?.trim() ?: ""
+            val safeMessage = if (rawMessage.isEmpty()) "提醒" else rawMessage
+
             return TimeAlarmItem(
                 id = map["id"] as? String ?: UUID.randomUUID().toString(),
                 hour = map["hour"] as? Int ?: 0,
                 minute = map["minute"] as? Int ?: 0,
                 enabled = map["enabled"] as? Boolean ?: true,
-                message = (map["message"] as? String ?: "提醒").take(50),
+                message = safeMessage.take(50),
                 repeatDays = repeatDays
             )
         }

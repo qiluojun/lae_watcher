@@ -16,7 +16,8 @@ import com.example.lae_watcher.activities.AlarmActivity
  */
 class ScreenTimeTracker(
     private val context: Context,
-    private var thresholdSeconds: Int
+    private var thresholdSeconds: Int,
+    private var alarmMessage: String = "亮屏时间过长！" // 自定义提示语
 ) {
     companion object {
         private const val TAG = "ScreenTimeTracker"
@@ -115,11 +116,12 @@ class ScreenTimeTracker(
         hasTriggered = true
 
         Log.i(TAG, "🚨 启动 AlarmActivity...")
+        Log.i(TAG, "  → 提示语: $alarmMessage")
 
         // 启动 AlarmActivity
         val intent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(AlarmActivity.EXTRA_ALARM_MESSAGE, "亮屏时间过长！")
+            putExtra(AlarmActivity.EXTRA_ALARM_MESSAGE, alarmMessage) // 使用自定义提示语
             putExtra(AlarmActivity.EXTRA_ALARM_TYPE, "behavior") // 标记为行为监控提醒
         }
 

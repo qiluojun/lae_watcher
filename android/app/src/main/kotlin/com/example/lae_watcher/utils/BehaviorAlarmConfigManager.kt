@@ -77,6 +77,15 @@ object BehaviorAlarmConfigManager {
     }
 
     /**
+     * 更新配置的提示语
+     */
+    fun setMessage(context: Context, message: String) {
+        val config = loadConfig(context)
+        val newConfig = config.copy(message = message)
+        saveConfig(context, newConfig)
+    }
+
+    /**
      * 清除所有配置（恢复默认）
      */
     fun clearConfig(context: Context) {

@@ -82,14 +82,18 @@ object AlarmScheduler {
                 alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
 
                 val calendar = Calendar.getInstance().apply { timeInMillis = triggerTime }
-                Log.i(TAG, "⏰ 提醒已设置: [${item.id.substring(0, 8)}] ${item.hour}:${item.minute.toString().padStart(2, '0')} \"${item.message}\" (REQUEST_CODE=$requestCode)")
+                val idPrefix = if (item.id.length >= 8) item.id.substring(0, 8) else item.id
+                val messagePreview = if (item.message.length > 10) item.message.substring(0, 10) + "..." else item.message
+                Log.i(TAG, "⏰ 提醒已设置: [$idPrefix] ${item.hour}:${item.minute.toString().padStart(2, '0')} \"$messagePreview\" (REQUEST_CODE=$requestCode)")
             } else {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
                     pendingIntent
                 )
-                Log.i(TAG, "提醒已设置: [${item.id.substring(0, 8)}] ${item.hour}:${item.minute.toString().padStart(2, '0')} \"${item.message}\"")
+                val idPrefix = if (item.id.length >= 8) item.id.substring(0, 8) else item.id
+                val messagePreview = if (item.message.length > 10) item.message.substring(0, 10) + "..." else item.message
+                Log.i(TAG, "提醒已设置: [$idPrefix] ${item.hour}:${item.minute.toString().padStart(2, '0')} \"$messagePreview\"")
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "设置提醒失败: 缺少权限", e)
@@ -115,7 +119,8 @@ object AlarmScheduler {
         )
 
         alarmManager.cancel(pendingIntent)
-        Log.i(TAG, "提醒已取消: ID=[${id.substring(0, 8)}] (REQUEST_CODE=$requestCode)")
+        val idPrefix = if (id.length >= 8) id.substring(0, 8) else id
+        Log.i(TAG, "提醒已取消: ID=[$idPrefix] (REQUEST_CODE=$requestCode)")
     }
 
     /**
@@ -127,6 +132,22 @@ object AlarmScheduler {
             cancel(context, item.id)
         }
         Log.i(TAG, "批量取消完成: 共 ${items.size} 个提醒")
+    }
+
+    /**
+     * 重新调度所有提醒（先取消全部，再设置启用的）
+     * 这是最安全的方式，确保禁用的提醒不会残留在 AlarmManager 中
+     */
+    fun rescheduleAll(context: Context, allItems: List<TimeAlarmItem>) {
+        Log.i(TAG, "========== 开始重新调度所有提醒 ==========")
+        // 先取消所有提醒（包括启用和禁用的）
+        cancelAll(context, allItems)
+        // 只设置启用的提醒
+        val enabledItems = allItems.filter { it.enabled }
+        enabledItems.forEach { item ->
+            schedule(context, item)
+        }
+        Log.i(TAG, "重新调度完成: 取消 ${allItems.size} 个，设置 ${enabledItems.size} 个启用的提醒")
     }
 
     // ========== 以下是旧版方法，保留用于兼容 ==========

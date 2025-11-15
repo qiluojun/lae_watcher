@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/native_bridge.dart';
+import 'alarms_screen.dart';
 
 /// SettingsScreen - 提醒时间设置界面
 ///
@@ -264,6 +265,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // 提醒管理入口卡片（新增）
+          Card(
+            elevation: 4,
+            color: Colors.blue.shade50,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AlarmsScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.list_alt,
+                        size: 32,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '提醒管理',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '管理所有定时提醒和行为监控',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.blue.shade400,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // 提醒时间设置卡片
           Card(
             child: Padding(
@@ -458,10 +524,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // 快速测试按钮
                   OutlinedButton.icon(
                     onPressed: () async {
-                      // 快速测试：设置10秒阈值，立即启动监控
+                      // 快速测试：设置10秒阈值，自定义提示语
                       final testConfig = _behaviorConfig.copyWith(
                         enabled: true,
                         screenTimeThreshold: 10,
+                        message: "【测试提醒】亮屏超过10秒！",
                       );
                       final success = await NativeBridge.setBehaviorAlarmConfig(testConfig);
                       if (success) {
@@ -471,7 +538,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('测试模式已启动：10秒阈值，请亮屏测试'),
+                              content: Text('测试模式已启动：10秒阈值，自定义提示语'),
                               duration: Duration(seconds: 3),
                               backgroundColor: Colors.purple,
                             ),
@@ -480,7 +547,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
                     icon: const Icon(Icons.science),
-                    label: const Text('快速测试（10秒阈值）'),
+                    label: const Text('快速测试（10秒阈值 + 自定义提示语）'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.purple.shade700,
                     ),
