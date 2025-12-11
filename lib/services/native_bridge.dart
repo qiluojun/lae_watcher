@@ -251,6 +251,265 @@ class BehaviorAlarmConfig {
   }
 }
 
+/// 问题类型枚举 (Type C)
+enum QuestionType {
+  choice,  // 单选/多选题
+  text,    // 自由文本输入
+  slider;  // 滑动打分
+
+  String toNative() {
+    switch (this) {
+      case QuestionType.choice:
+        return 'CHOICE';
+      case QuestionType.text:
+        return 'TEXT';
+      case QuestionType.slider:
+        return 'SLIDER';
+    }
+  }
+
+  static QuestionType fromNative(String value) {
+    switch (value.toUpperCase()) {
+      case 'CHOICE':
+        return QuestionType.choice;
+      case 'TEXT':
+        return QuestionType.text;
+      case 'SLIDER':
+        return QuestionType.slider;
+      default:
+        return QuestionType.text;
+    }
+  }
+}
+
+/// 触发类型枚举 (Type C)
+enum TriggerType {
+  time,      // 定时提醒触发
+  behavior;  // 行为监控触发
+
+  String toNative() {
+    switch (this) {
+      case TriggerType.time:
+        return 'TIME';
+      case TriggerType.behavior:
+        return 'BEHAVIOR';
+    }
+  }
+
+  static TriggerType fromNative(String value) {
+    switch (value.toUpperCase()) {
+      case 'TIME':
+        return TriggerType.time;
+      case 'BEHAVIOR':
+        return TriggerType.behavior;
+      default:
+        return TriggerType.time;
+    }
+  }
+}
+
+/// 问题数据类 (Type C)
+class Question {
+  final String id;
+  final QuestionType type;
+  final String title;
+  final List<String>? options;          // CHOICE 类型使用
+  final bool isMultipleChoice;          // CHOICE 类型使用
+  final int? min;                       // SLIDER 类型使用
+  final int? max;                       // SLIDER 类型使用
+  final int? step;                      // SLIDER 类型使用
+
+  Question({
+    required this.id,
+    required this.type,
+    required this.title,
+    this.options,
+    this.isMultipleChoice = false,
+    this.min,
+    this.max,
+    this.step,
+  });
+
+  /// 从 Map 创建
+  factory Question.fromMap(Map<String, dynamic> map) {
+    return Question(
+      id: map['id'] as String,
+      type: QuestionType.fromNative(map['type'] as String),
+      title: map['title'] as String,
+      options: map['options'] != null ? List<String>.from(map['options']) : null,
+      isMultipleChoice: map['isMultipleChoice'] as bool? ?? false,
+      min: map['min'] as int?,
+      max: map['max'] as int?,
+      step: map['step'] as int?,
+    );
+  }
+
+  /// 转换为 Map
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'type': type.toNative(),
+      'title': title,
+      'options': options,
+      'isMultipleChoice': isMultipleChoice,
+      'min': min,
+      'max': max,
+      'step': step,
+    };
+  }
+
+  /// 创建单选/多选题
+  factory Question.choice({
+    required String id,
+    required String title,
+    required List<String> options,
+    bool isMultipleChoice = false,
+  }) {
+    return Question(
+      id: id,
+      type: QuestionType.choice,
+      title: title,
+      options: options,
+      isMultipleChoice: isMultipleChoice,
+    );
+  }
+
+  /// 创建文本题
+  factory Question.text({
+    required String id,
+    required String title,
+  }) {
+    return Question(
+      id: id,
+      type: QuestionType.text,
+      title: title,
+    );
+  }
+
+  /// 创建滑动打分题
+  factory Question.slider({
+    required String id,
+    required String title,
+    int min = 0,
+    int max = 10,
+    int step = 1,
+  }) {
+    return Question(
+      id: id,
+      type: QuestionType.slider,
+      title: title,
+      min: min,
+      max: max,
+      step: step,
+    );
+  }
+}
+
+/// Type C - 记录配置数据类
+class RecordConfig {
+  final String uuid;
+  final TriggerType triggerType;
+  final String triggerRefId;
+  final String title;
+  final List<Question> questions;
+
+  RecordConfig({
+    required this.uuid,
+    required this.triggerType,
+    required this.triggerRefId,
+    required this.title,
+    required this.questions,
+  });
+
+  /// 从 Map 创建
+  factory RecordConfig.fromMap(Map<String, dynamic> map) {
+    final questionsList = map['questions'] as List<dynamic>;
+    final questions = questionsList
+        .map((q) => Question.fromMap(Map<String, dynamic>.from(q)))
+        .toList();
+
+    return RecordConfig(
+      uuid: map['uuid'] as String,
+      triggerType: TriggerType.fromNative(map['triggerType'] as String),
+      triggerRefId: map['triggerRefId'] as String,
+      title: map['title'] as String,
+      questions: questions,
+    );
+  }
+
+  /// 转换为 Map
+  Map<String, dynamic> toMap() {
+    return {
+      'uuid': uuid,
+      'triggerType': triggerType.toNative(),
+      'triggerRefId': triggerRefId,
+      'title': title,
+      'questions': questions.map((q) => q.toMap()).toList(),
+    };
+  }
+
+  /// 复制并修改部分字段
+  RecordConfig copyWith({
+    String? uuid,
+    TriggerType? triggerType,
+    String? triggerRefId,
+    String? title,
+    List<Question>? questions,
+  }) {
+    return RecordConfig(
+      uuid: uuid ?? this.uuid,
+      triggerType: triggerType ?? this.triggerType,
+      triggerRefId: triggerRefId ?? this.triggerRefId,
+      title: title ?? this.title,
+      questions: questions ?? this.questions,
+    );
+  }
+
+  @override
+  String toString() {
+    final triggerTypeStr = triggerType == TriggerType.time ? '定时' : '行为';
+    return '$title ($triggerTypeStr, ${questions.length} 题)';
+  }
+}
+
+/// 记录答案数据类 (Type C)
+class RecordAnswer {
+  final int timestamp;
+  final String recordId;
+  final Map<String, dynamic> answers;
+
+  RecordAnswer({
+    required this.timestamp,
+    required this.recordId,
+    required this.answers,
+  });
+
+  /// 从 Map 创建
+  factory RecordAnswer.fromMap(Map<String, dynamic> map) {
+    return RecordAnswer(
+      timestamp: map['timestamp'] as int,
+      recordId: map['recordId'] as String,
+      answers: Map<String, dynamic>.from(map['answers']),
+    );
+  }
+
+  /// 转换为 Map
+  Map<String, dynamic> toMap() {
+    return {
+      'timestamp': timestamp,
+      'recordId': recordId,
+      'answers': answers,
+    };
+  }
+
+  /// 格式化时间戳为日期时间字符串
+  String get formattedDateTime {
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} '
+           '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+}
+
 /// NativeBridge - Flutter 与 Android 原生通信桥梁
 ///
 /// 功能:
@@ -500,6 +759,98 @@ class NativeBridge {
     } catch (e) {
       print('切换行为监控配置状态失败: $e');
       return null;
+    }
+  }
+
+  // ========== Type C 记录系统接口 ==========
+
+  /// 获取所有记录配置
+  static Future<List<RecordConfig>> getRecordConfigs() async {
+    try {
+      final result = await _channel.invokeMethod('getRecordConfigs');
+      final list = result as List<dynamic>;
+      return list.map((item) => RecordConfig.fromMap(Map<String, dynamic>.from(item))).toList();
+    } catch (e) {
+      print('获取记录配置列表失败: $e');
+      return [];
+    }
+  }
+
+  /// 保存记录配置（自动判断新增/更新）
+  static Future<bool> saveRecordConfig(RecordConfig config) async {
+    try {
+      final result = await _channel.invokeMethod('saveRecordConfig', config.toMap());
+      return result == true;
+    } catch (e) {
+      print('保存记录配置失败: $e');
+      return false;
+    }
+  }
+
+  /// 删除记录配置（级联删除关联答案）
+  static Future<bool> deleteRecordConfig(String uuid) async {
+    try {
+      final result = await _channel.invokeMethod('deleteRecordConfig', {'uuid': uuid});
+      return result == true;
+    } catch (e) {
+      print('删除记录配置失败: $e');
+      return false;
+    }
+  }
+
+  /// 获取答案记录
+  /// [recordId] 可选，指定则获取该记录的所有答案，否则获取全部答案
+  static Future<List<RecordAnswer>> getRecordAnswers({String? recordId}) async {
+    try {
+      final result = await _channel.invokeMethod('getRecordAnswers',
+        recordId != null ? {'recordId': recordId} : null);
+      final list = result as List<dynamic>;
+      return list.map((item) => RecordAnswer.fromMap(Map<String, dynamic>.from(item))).toList();
+    } catch (e) {
+      print('获取答案记录失败: $e');
+      return [];
+    }
+  }
+
+  /// 按时间范围获取答案记录
+  /// [startTimestamp] 起始时间戳（Unix 毫秒）
+  /// [endTimestamp] 结束时间戳（Unix 毫秒）
+  static Future<List<RecordAnswer>> getRecordAnswersByTimeRange({
+    required int startTimestamp,
+    required int endTimestamp,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod('getRecordAnswersByTimeRange', {
+        'startTimestamp': startTimestamp,
+        'endTimestamp': endTimestamp,
+      });
+      final list = result as List<dynamic>;
+      return list.map((item) => RecordAnswer.fromMap(Map<String, dynamic>.from(item))).toList();
+    } catch (e) {
+      print('按时间范围获取答案记录失败: $e');
+      return [];
+    }
+  }
+
+  /// 导出所有答案为 JSON 字符串
+  static Future<String> exportRecordAnswers() async {
+    try {
+      final result = await _channel.invokeMethod('exportRecordAnswers');
+      return result as String;
+    } catch (e) {
+      print('导出答案记录失败: $e');
+      return '[]';
+    }
+  }
+
+  /// 删除指定时间戳的答案记录
+  static Future<bool> deleteRecordAnswer(int timestamp) async {
+    try {
+      final result = await _channel.invokeMethod('deleteRecordAnswer', {'timestamp': timestamp});
+      return result == true;
+    } catch (e) {
+      print('删除答案记录失败: $e');
+      return false;
     }
   }
 

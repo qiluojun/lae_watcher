@@ -118,11 +118,22 @@ class ScreenTimeTracker(
         Log.i(TAG, "🚨 启动 AlarmActivity...")
         Log.i(TAG, "  → 提示语: $alarmMessage")
 
+        // Phase 3: 查询是否有关联的记录配置
+        val recordId = findRecordIdByBehaviorTrigger()
+        if (recordId != null) {
+            Log.d(TAG, "  → 检测到关联的记录配置: $recordId")
+        }
+
         // 启动 AlarmActivity
         val intent = Intent(context, AlarmActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(AlarmActivity.EXTRA_ALARM_MESSAGE, alarmMessage) // 使用自定义提示语
             putExtra(AlarmActivity.EXTRA_ALARM_TYPE, "behavior") // 标记为行为监控提醒
+
+            // Phase 3: 传递 recordId（如果存在）
+            if (recordId != null) {
+                putExtra(AlarmActivity.EXTRA_RECORD_ID, recordId)
+            }
         }
 
         try {
@@ -130,6 +141,21 @@ class ScreenTimeTracker(
             Log.i(TAG, "✓ AlarmActivity 已启动")
         } catch (e: Exception) {
             Log.e(TAG, "✗ 启动 AlarmActivity 失败", e)
+        }
+    }
+
+    /**
+     * Phase 3: 查找行为监控关联的记录配置
+     * @return 记录配置 UUID，如果没有则返回 null
+     */
+    private fun findRecordIdByBehaviorTrigger(): String? {
+        return try {
+            val configManager = RecordConfigManager(context)
+            val configs = configManager.getByTriggerRefId("behavior")
+            configs.firstOrNull()?.uuid  // 取第一个匹配的记录配置
+        } catch (e: Exception) {
+            Log.e(TAG, "查询记录配置失败", e)
+            null
         }
     }
 

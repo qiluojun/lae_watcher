@@ -18,6 +18,10 @@ import com.example.lae_watcher.utils.TimeAlarmManager
 import com.example.lae_watcher.utils.BehaviorAlarmManager
 import com.example.lae_watcher.data.TimeAlarmItem
 import com.example.lae_watcher.data.BehaviorAlarmItem
+import com.example.lae_watcher.utils.RecordConfigManager
+import com.example.lae_watcher.utils.RecordAnswerManager
+import com.example.lae_watcher.data.RecordConfig
+import com.example.lae_watcher.data.RecordAnswer
 
 /**
  * MainActivity - Flutter 宿主 Activity
@@ -280,6 +284,98 @@ class MainActivity : FlutterActivity() {
                         result.success(newState)
                     } else {
                         result.error("INVALID_ARGUMENTS", "ID 参数无效", null)
+                    }
+                }
+                // ========== Type C 记录系统接口 ==========
+                "getRecordConfigs" -> {
+                    val manager = RecordConfigManager(this)
+                    val configs = manager.getAll()
+                    Log.i(TAG, "Flutter 调用: getRecordConfigs -> ${configs.size} 个记录配置")
+                    result.success(configs.map { it.toMap() })
+                }
+                "saveRecordConfig" -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val configMap = call.arguments as? Map<String, Any?>
+                    if (configMap != null) {
+                        val config = RecordConfig.fromMap(configMap)
+                        val manager = RecordConfigManager(this)
+
+                        // 检查是否已存在 (通过 UUID 判断)
+                        val existing = manager.getByUuid(config.uuid)
+                        val success = if (existing != null) {
+                            manager.update(config)
+                        } else {
+                            manager.add(config)
+                        }
+
+                        Log.i(TAG, "Flutter 调用: saveRecordConfig -> ${config.toString()}, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "记录配置参数无效", null)
+                    }
+                }
+                "deleteRecordConfig" -> {
+                    val uuid = call.argument<String>("uuid")
+                    if (uuid != null) {
+                        val configManager = RecordConfigManager(this)
+                        val answerManager = RecordAnswerManager(this)
+
+                        // 级联删除：先删除关联的答案记录
+                        val deletedAnswers = answerManager.deleteByRecordId(uuid)
+                        Log.i(TAG, "级联删除答案记录: $deletedAnswers 条")
+
+                        // 再删除配置本身
+                        val success = configManager.delete(uuid)
+                        Log.i(TAG, "Flutter 调用: deleteRecordConfig -> uuid=$uuid, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "UUID 参数无效", null)
+                    }
+                }
+                "getRecordAnswers" -> {
+                    val manager = RecordAnswerManager(this)
+                    val recordId = call.argument<String>("recordId")
+
+                    val answers = if (recordId != null) {
+                        // 获取指定记录的答案
+                        Log.i(TAG, "Flutter 调用: getRecordAnswers -> recordId=$recordId")
+                        manager.getByRecordId(recordId)
+                    } else {
+                        // 获取所有答案
+                        Log.i(TAG, "Flutter 调用: getRecordAnswers -> 获取所有答案")
+                        manager.getAll()
+                    }
+
+                    result.success(answers.map { it.toMap() })
+                }
+                "getRecordAnswersByTimeRange" -> {
+                    val startTimestamp = call.argument<Long>("startTimestamp")
+                    val endTimestamp = call.argument<Long>("endTimestamp")
+
+                    if (startTimestamp != null && endTimestamp != null) {
+                        val manager = RecordAnswerManager(this)
+                        val answers = manager.getByTimeRange(startTimestamp, endTimestamp)
+                        Log.i(TAG, "Flutter 调用: getRecordAnswersByTimeRange -> ${answers.size} 条记录")
+                        result.success(answers.map { it.toMap() })
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "时间范围参数无效", null)
+                    }
+                }
+                "exportRecordAnswers" -> {
+                    val manager = RecordAnswerManager(this)
+                    val jsonString = manager.exportToJson()
+                    Log.i(TAG, "Flutter 调用: exportRecordAnswers -> 导出完成")
+                    result.success(jsonString)
+                }
+                "deleteRecordAnswer" -> {
+                    val timestamp = call.argument<Long>("timestamp")
+                    if (timestamp != null) {
+                        val manager = RecordAnswerManager(this)
+                        val success = manager.deleteByTimestamp(timestamp)
+                        Log.i(TAG, "Flutter 调用: deleteRecordAnswer -> timestamp=$timestamp, success=$success")
+                        result.success(success)
+                    } else {
+                        result.error("INVALID_ARGUMENTS", "时间戳参数无效", null)
                     }
                 }
                 // ========== 测试接口 ==========

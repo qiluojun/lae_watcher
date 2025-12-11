@@ -46,10 +46,12 @@ class AlarmActivity : Activity() {
         const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_ALARM_MESSAGE = "alarm_message"
         const val EXTRA_ALARM_TYPE = "alarm_type"
+        const val EXTRA_RECORD_ID = "record_id"  // Phase 3: 记录配置 UUID
     }
 
     private var wakeLock: PowerManager.WakeLock? = null
     private var vibrator: Vibrator? = null
+    private var recordId: String? = null  // Phase 3: 记录配置 UUID
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -245,6 +247,12 @@ class AlarmActivity : Activity() {
         val message = intent.getStringExtra(EXTRA_ALARM_MESSAGE) ?: "该休息了！"
         val alarmType = intent.getStringExtra(EXTRA_ALARM_TYPE) ?: "daily"
 
+        // Phase 3: 读取记录配置 UUID
+        recordId = intent.getStringExtra(EXTRA_RECORD_ID)
+        if (recordId != null) {
+            Log.d(TAG, "检测到记录配置 UUID: $recordId")
+        }
+
         // 设置标题
         titleText.text = message
 
@@ -257,6 +265,11 @@ class AlarmActivity : Activity() {
                 resetBehaviorTracker()
             }
 
+            // Phase 3: 如果有关联的记录配置，跳转到问卷界面
+            if (recordId != null) {
+                launchRecordActivity(recordId!!)
+            }
+
             finish()
         }
 
@@ -264,7 +277,29 @@ class AlarmActivity : Activity() {
         snoozeButton.setOnClickListener {
             Log.d(TAG, "用户点击：再等1min (类型: $alarmType)")
             snoozeAlarm()
+
+            // Phase 3: 延迟后仍需跳转到问卷界面
+            if (recordId != null) {
+                launchRecordActivity(recordId!!)
+            }
+
             finish()
+        }
+    }
+
+    /**
+     * Phase 3: 启动问卷记录界面
+     */
+    private fun launchRecordActivity(recordId: String) {
+        try {
+            val intent = android.content.Intent(this, com.example.lae_watcher.activities.RecordActivity::class.java).apply {
+                putExtra("record_id", recordId)
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(intent)
+            Log.i(TAG, "✓ 已启动 RecordActivity, recordId=$recordId")
+        } catch (e: Exception) {
+            Log.e(TAG, "✗ 启动 RecordActivity 失败", e)
         }
     }
 

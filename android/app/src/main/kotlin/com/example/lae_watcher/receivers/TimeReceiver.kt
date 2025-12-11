@@ -86,6 +86,12 @@ class TimeReceiver : BroadcastReceiver() {
     private fun launchAlarmActivity(context: Context, alarmId: String, message: String) {
         Log.d(TAG, "→ 开始启动 AlarmActivity...")
 
+        // Phase 3: 查询是否有关联的记录配置
+        val recordId = findRecordIdByTrigger(context, alarmId)
+        if (recordId != null) {
+            Log.d(TAG, "  → 检测到关联的记录配置: $recordId")
+        }
+
         val intent = Intent(context, AlarmActivity::class.java).apply {
             // 添加关键 flags 以支持后台启动（Android 14+）
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -96,6 +102,11 @@ class TimeReceiver : BroadcastReceiver() {
             putExtra(AlarmActivity.EXTRA_ALARM_ID, alarmId)
             putExtra(AlarmActivity.EXTRA_ALARM_MESSAGE, message)
             putExtra(AlarmActivity.EXTRA_ALARM_TYPE, "time")
+
+            // Phase 3: 传递 recordId（如果存在）
+            if (recordId != null) {
+                putExtra(AlarmActivity.EXTRA_RECORD_ID, recordId)
+            }
         }
 
         try {
@@ -103,6 +114,22 @@ class TimeReceiver : BroadcastReceiver() {
             Log.i(TAG, "  ✓ AlarmActivity 已启动")
         } catch (e: Exception) {
             Log.e(TAG, "  ✗ 启动 AlarmActivity 失败", e)
+        }
+    }
+
+    /**
+     * Phase 3: 根据触发源 ID 查找关联的记录配置
+     * @param triggerRefId TimeAlarmItem.id
+     * @return 记录配置 UUID，如果没有则返回 null
+     */
+    private fun findRecordIdByTrigger(context: Context, triggerRefId: String): String? {
+        return try {
+            val configManager = com.example.lae_watcher.utils.RecordConfigManager(context)
+            val configs = configManager.getByTriggerRefId(triggerRefId)
+            configs.firstOrNull()?.uuid  // 取第一个匹配的记录配置
+        } catch (e: Exception) {
+            Log.e(TAG, "查询记录配置失败", e)
+            null
         }
     }
 

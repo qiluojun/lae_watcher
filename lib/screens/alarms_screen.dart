@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import '../services/native_bridge.dart';
 import 'edit_time_alarm_screen.dart';
 import 'edit_behavior_config_screen.dart';
+import 'records_screen.dart';
+import 'record_answers_screen.dart';
 
 /// 提醒管理主界面
 ///
 /// 功能：
 /// - Tab 1: Type A 定时提醒列表（多提醒）
 /// - Tab 2: Type B 行为监控配置（单配置 + 多时段）
+/// - Tab 3: Type C 记录配置列表（Phase 3）
 class AlarmsScreen extends StatefulWidget {
   const AlarmsScreen({Key? key}) : super(key: key);
 
@@ -29,7 +32,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _loadData();
   }
 
@@ -182,14 +185,17 @@ class _AlarmsScreenState extends State<AlarmsScreen> with SingleTickerProviderSt
           tabs: const [
             Tab(icon: Icon(Icons.access_time), text: '定时提醒'),
             Tab(icon: Icon(Icons.visibility), text: '行为监控'),
+            Tab(icon: Icon(Icons.assignment), text: '记录配置'),
           ],
         ),
+        actions: _buildAppBarActions(),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
           _buildTimeAlarmsTab(),
           _buildBehaviorConfigTab(),
+          const RecordsScreen(),
         ],
       ),
       floatingActionButton: _buildFloatingActionButton(),
@@ -477,6 +483,35 @@ class _AlarmsScreenState extends State<AlarmsScreen> with SingleTickerProviderSt
     );
   }
 
+  /// AppBar 右侧操作按钮（根据当前 Tab 显示不同功能）
+  List<Widget>? _buildAppBarActions() {
+    // 监听 Tab 切换
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {}); // 刷新 AppBar actions
+      }
+    });
+
+    if (_tabController.index == 2) {
+      // Tab 3: 记录配置 - 显示查看所有答案按钮
+      return [
+        IconButton(
+          icon: const Icon(Icons.history),
+          tooltip: '查看所有答案',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const RecordAnswersScreen(),
+              ),
+            );
+          },
+        ),
+      ];
+    }
+    return null;
+  }
+
   /// 浮动操作按钮（根据当前 Tab 显示不同功能）
   Widget? _buildFloatingActionButton() {
     if (_tabController.index == 0) {
@@ -487,7 +522,7 @@ class _AlarmsScreenState extends State<AlarmsScreen> with SingleTickerProviderSt
         child: const Icon(Icons.add),
       );
     } else {
-      // Tab 2: 行为监控没有 FAB（不支持添加多个配置）
+      // Tab 2 & 3: 行为监控和记录配置都有自己的界面内按钮，不需要 FAB
       return null;
     }
   }
